@@ -69,7 +69,7 @@ class TLDetector(object):
 
         """
         self.has_image = True
-        self.camera_image = msg
+        self.camera_image = msg        
         light_wp, state = self.process_traffic_lights()
 
         '''
@@ -131,7 +131,8 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        light = None
+        #light = None
+        light = True
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
@@ -139,9 +140,11 @@ class TLDetector(object):
             car_position = self.get_closest_waypoint(self.pose.pose)
 
         #TODO find the closest visible traffic light (if one exists)
-
+        light_wp = []
         if light:
             state = self.get_light_state(light)
+            rospy.loginfo('TL state is %d', state)
+
             return light_wp, state
         self.waypoints = None
         return -1, TrafficLight.UNKNOWN
