@@ -11,10 +11,12 @@ RED_THRESHOLD = 150
 GREEN_THRESHOLD = 150
 CONF_TOP = 2.0
 CONF_BOT = 0.5
+TOP_5 = 5
 
 class TLClassifier(object):
     def __init__(self):
         #TODO load classifier
+        
         self.detection_graph = self.load_graph(FASTER_RCNN_GRAPH_FILE)
 
         # The input placeholder for the image.
@@ -32,7 +34,8 @@ class TLClassifier(object):
         self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
 
         self.count = 0
-
+        
+    
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
 
@@ -47,6 +50,8 @@ class TLClassifier(object):
 
         #norm_img = self.image_normalize(image)
         #image = (norm_img + 1.0)*255/2
+        
+        
         cv2.imwrite("/media/sf_Shared/sim_{}_cv2.jpg".format(self.count), image)
         self.count += 1
         image_np = np.expand_dims(np.asarray(image, dtype=np.uint8), 0)
@@ -61,9 +66,10 @@ class TLClassifier(object):
             scores = np.squeeze(scores)
             classes = np.squeeze(classes)
 
-            confidence_cutoff = BOX_CONFIDENCE
+            #confidence_cutoff = BOX_CONFIDENCE
+            top_x = TOP_5
             # Filter boxes with a confidence score less than `confidence_cutoff`
-            boxes, scores, classes = self.filter_boxes(confidence_cutoff, boxes, scores, classes)
+            boxes, scores, classes = self.filter_boxes(top_x, boxes, scores, classes)
 
             # The current box coordinates are normalized to a range between 0 and 1.
             # This converts the coordinates actual location on the image.
@@ -91,7 +97,7 @@ class TLClassifier(object):
                 im = np.array(tl_image)
                 total_vote += im.shape[0]*im.shape[1]
                 # Create the histogram for each RGB channel
-                rh, gh, bh = color_hist(im, nbins=32, bins_range=(0, 256))
+                rh, gh, bh = self.color_hist(im, nbins=32, bins_range=(0, 256))
                 if rh is not None:           
                     for i in range(len(rh[0])): 
                         if rh[1][i] > RED_THRESHOLD:
@@ -122,14 +128,15 @@ class TLClassifier(object):
             else:
                 rospy.loginfo('Check2...')
                 return TrafficLight.UNKNOWN
+            
+        return TrafficLight.UNKNOWN
 
-    def filter_boxes(self, min_score, boxes, scores, classes):
-        """Return boxes with a confidence >= `min_score`"""
-        n = len(classes)
+    def filter_boxes(self, top_x, boxes, scores, classes):
+        """Return the top several scores boxes """
         idxs = []
-        for i in range(n):
-            if scores[i] >= min_score:
-                idxs.append(i)
+        for i in range(top_x):
+            #print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
+            idxs.append(i)
     
         filtered_boxes = boxes[idxs, ...]
         filtered_scores = scores[idxs, ...]
@@ -171,3 +178,10 @@ class TLClassifier(object):
                 minPixel = np.amin(original_image[n][...,i])
                 original_image[n][...,i] = -1.0 + (original_image[n][...,i] - minPixel)*2.0/(maxPixel-minPixel)
         return original_image
+    
+    def color_hist(self, img, nbins=32, bins_range=(0, 256)):
+        # Compute the histogram of the RGB channels separately
+        rhist = np.histogram(img[:,:,0], nbins, bins_range)
+        ghist = np.histogram(img[:,:,1], nbins, bins_range)
+        bhist = np.histogram(img[:,:,2], nbins, bins_range)
+        return rhist, ghist, bhist
