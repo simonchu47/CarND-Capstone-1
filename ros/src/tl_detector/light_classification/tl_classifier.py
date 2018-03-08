@@ -1,9 +1,10 @@
+from __future__ import division
 from styx_msgs.msg import TrafficLight
 import rospy
 import tensorflow as tf
 import numpy as np
-from PIL import Image
-import cv2
+#from PIL import Image
+#import cv2
 
 FASTER_RCNN_GRAPH_FILE = 'light_classification/tld/frozen_inference_graph.pb'
 BOX_CONFIDENCE = 0.8
@@ -52,8 +53,8 @@ class TLClassifier(object):
         #image = (norm_img + 1.0)*255/2
         
         
-        cv2.imwrite("/media/sf_Shared/sim_{}_cv2.jpg".format(self.count), image)
-        self.count += 1
+        #cv2.imwrite("/media/sf_Shared/sim_{}_cv2.jpg".format(self.count), image)
+        #self.count += 1
         image_np = np.expand_dims(np.asarray(image, dtype=np.uint8), 0)
         with tf.Session(graph=self.detection_graph) as sess:                
             
@@ -91,7 +92,7 @@ class TLClassifier(object):
                 # Get the position of each box
                 bot, left, top, right = box_coords[i, ...]
                 # The class id of traffic light should be 1, but depend on the graph
-                class_id = int(classes[i])
+                #class_id = int(classes[i])
                 #tl_image = image.crop((int(left), int(bot), int(right), int(top)))
                 tl_image = image[int(bot):int(top), int(left):int(right)]
                 im = np.array(tl_image)
@@ -99,18 +100,18 @@ class TLClassifier(object):
                 # Create the histogram for each RGB channel
                 rh, gh, bh = self.color_hist(im, nbins=32, bins_range=(0, 256))
                 if rh is not None:           
-                    for i in range(len(rh[0])): 
+                    for i in range(len(rh[0])):
                         if rh[1][i] > RED_THRESHOLD:
                             r_vote += rh[0][i] 
               
                 if gh is not None:
-                    for i in range(len(gh[0])): 
+                    for i in range(len(gh[0])):
                         if gh[1][i] > GREEN_THRESHOLD:
                             g_vote += gh[0][i]
 
             if TL_Detected:
                 r_confidence = r_vote/total_vote
-                g_confidence = g_vote/total_vote 
+                g_confidence = g_vote/total_vote
                 if g_confidence > 0.0:
                     conf_ratio = r_confidence/g_confidence
                     if conf_ratio > CONF_TOP:
@@ -136,6 +137,7 @@ class TLClassifier(object):
         idxs = []
         for i in range(top_x):
             #print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
+            rospy.loginfo("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             idxs.append(i)
     
         filtered_boxes = boxes[idxs, ...]
