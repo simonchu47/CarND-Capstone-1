@@ -136,7 +136,7 @@ class TLClassifier(object):
         """Return the top several scores boxes """
         idxs = []
         for i in range(top_x):
-            #print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
+            print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             rospy.loginfo("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             idxs.append(i)
     
