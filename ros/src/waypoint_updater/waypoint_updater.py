@@ -215,17 +215,18 @@ class WaypointUpdater(object):
                 check = v**2 - 2*a*s
                 if check > 0:
                     rospy.loginfo("check={}".format(check))
-                    divided = v - math.sqrt(check)
+                    #divided = v - math.sqrt(check)
+                    p.twist.twist.linear.x = math.sqrt(check)
+                    
                 else:
-                    rospy.loginfo("check=0!!")
-                    divided = v
+                    rospy.loginfo("check<=0!!")
+                    p.twist.twist.linear.x = 0
                 #divided = v - math.sqrt(v**2 - 2*a*s)
                 #t = (v - math.sqrt(v**2 - 2*a*s))/a
-                t = divided/a
-                rospy.loginfo("/////////////start={}, end={}".format(self.next_wp, next_wp_id))
-                rospy.loginfo("s={}, divided={}".format(s, divided))
-                rospy.loginfo("a={}, t={}//////////".format(a, t))
-                p.twist.twist.linear.x = v - a*t
+                #t = divided/a
+                #rospy.loginfo("/////////////start={}, end={}".format(self.next_wp, next_wp_id))
+                #rospy.loginfo("s={}, divided={}".format(s, divided))
+                rospy.loginfo("a={}//////////".format(a))
             
             waypoints.append(p)
             next_wp_id += 1
