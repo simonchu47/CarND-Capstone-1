@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-
+from __future__ import division
 import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
 
 import math
 from geometry_msgs.msg import TwistStamped
+from std_msgs.msg import Int32
+import copy
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -22,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 10 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 20 # Number of waypoints we will publish. You can change this number
 PREDICT_TIME = 1.0
 NEAR_ZERO = 0.00001
 
@@ -31,13 +33,17 @@ class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
+        self.seeRedTL = False
+        self.redTL_wp_id = None
+        self.next_wp = None
+        
         #rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb, queue_size=1)
 	
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_wp_cb, queue_size=1)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         #self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane)
@@ -50,6 +56,7 @@ class WaypointUpdater(object):
         self.last_pose_stamp = rospy.Time(0)
         self.current_linear_x = 0.0
         self.current_angular_z = 0.0
+        
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -57,64 +64,46 @@ class WaypointUpdater(object):
         #pass
 
         self.current_pose = msg.pose
-        """
-        self.current_pose_stamp = msg.header.stamp
-        if self.first_pose == True:
-            self.last_pose = self.current_pose
-            sample_t = 1.0
-            self.predict_pose = self.current_pose
-            self.first_pose = False
-        else:
-            sample_t = self.get_duration(self.last_pose_stamp, self.current_pose_stamp)
-            if sample_t < NEAR_ZERO:
-                sample_t = NEAR_ZERO
+        if len(self.lane.waypoints) > 0:
+            delay_d = self.current_linear_x * PREDICT_TIME
+            phi = math.atan2(self.current_pose.position.y, self.current_pose.position.x) + self.current_pose.orientation.z + self.current_angular_z*PREDICT_TIME
+            delta_x = delay_d*math.sin(phi)
+            delta_y = delay_d*math.cos(phi)
+            self.predict_pose = Waypoint().pose.pose
+            self.predict_pose.position.x = self.current_pose.position.x + delta_x
+            self.predict_pose.position.y = self.current_pose.position.y + delta_y
 
-        vx = (self.current_pose.position.x - self.last_pose.position.x)/sample_t
-        vy = (self.current_pose.position.y - self.last_pose.position.y)/sample_t
-        rospy.loginfo('vx is %f, vy is %f', vx, vy)
+            rospy.loginfo('Current pose --- x is %f, y is %f', self.current_pose.position.x, self.current_pose.position.y)
+            rospy.loginfo('Predict pose --- x is %f, y is %f', self.predict_pose.position.x, self.predict_pose.position.y)
+            self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose)
+            #self.next_wp = self.find_next_wp(self.lane.waypoints, self.current_pose)
 
-        if vx != 0.0 and vy != 0.0:
-            p = Waypoint()
-            self.predict_pose = p.pose.pose
-            self.predict_pose.position.x = self.current_pose.position.x + vx * PREDICT_TIME
-            self.predict_pose.position.y = self.current_pose.position.y + vy * PREDICT_TIME
+            map_x = self.lane.waypoints[self.next_wp].pose.pose.position.x
+            map_y = self.lane.waypoints[self.next_wp].pose.pose.position.y
 
-        self.last_pose = self.current_pose
-        self.last_pose_stamp = self.current_pose_stamp
-        """
-        delay_d = self.current_linear_x * PREDICT_TIME
-        phi = math.atan2(self.current_pose.position.y, self.current_pose.position.x) + self.current_pose.orientation.z + self.current_angular_z*PREDICT_TIME
-        delta_x = delay_d*math.sin(phi)
-        delta_y = delay_d*math.cos(phi)
-        self.predict_pose = Waypoint().pose.pose
-        self.predict_pose.position.x = self.current_pose.position.x + delta_x
-        self.predict_pose.position.y = self.current_pose.position.y + delta_y
+            rospy.loginfo('Next waypoint[%d] x is %f, y is %f', self.next_wp, map_x, map_y)
 
-        rospy.loginfo('Current pose --- x is %f, y is %f', self.current_pose.position.x, self.current_pose.position.y)
-        rospy.loginfo('Predict pose --- x is %f, y is %f', self.predict_pose.position.x, self.predict_pose.position.y)
-        self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose)
-        #self.next_wp = self.find_next_wp(self.lane.waypoints, self.current_pose)
+            self.final_waypoints = []
+        
+            if self.seeRedTL:
+                rospy.loginfo("SEE RED LIGHT!!!!!!")
+                self.final_waypoints = self.gen_see_red_tl_wps()
+            else:
+                self.final_waypoints = self.gen_common_wps()
+            
+            wp_v = []
+            for i in range(len(self.final_waypoints)):
+                wp_v.append(self.final_waypoints[i].twist.twist.linear.x)
+            rospy.loginfo("velocity cmd = {}".format(wp_v))
+            rospy.loginfo("wp[292], v = {}".format(self.lane.waypoints[292].twist.twist.linear.x))
+        
+            lane = Lane()
+            lane.header.frame_id = '/world'
+            #lane.header.stamp = rospy.Time(0)
+            lane.header.stamp = rospy.get_rostime()
 
-        map_x = self.lane.waypoints[self.next_wp].pose.pose.position.x
-        map_y = self.lane.waypoints[self.next_wp].pose.pose.position.y
-
-        rospy.loginfo('Next waypoint[%d] x is %f, y is %f', self.next_wp, map_x, map_y)
-
-        self.final_waypoints = []
-        next_wp_id = self.next_wp
-        for i in range(LOOKAHEAD_WPS):
-            p = self.lane.waypoints[next_wp_id]
-            self.final_waypoints.append(p)
-            next_wp_id += 1
-            if next_wp_id == len(self.lane.waypoints):
-                next_wp_id = 0
-        lane = Lane()
-        lane.header.frame_id = '/world'
-        #lane.header.stamp = rospy.Time(0)
-        lane.header.stamp = rospy.get_rostime()
-
-        lane.waypoints = self.final_waypoints
-        self.final_waypoints_pub.publish(lane)
+            lane.waypoints = self.final_waypoints
+            self.final_waypoints_pub.publish(lane)
 
     def waypoints_cb(self, waypoints):
         # TODO: Implement
@@ -185,6 +174,79 @@ class WaypointUpdater(object):
     def current_velocity_cb(self, velocity):
         self.current_linear_x = velocity.twist.linear.x
         self.current_angular_z = velocity.twist.angular.z
+        
+    def traffic_wp_cb(self, tl_wp):
+        tl_wp_id = tl_wp.data
+        rospy.loginfo("Got RED LIGHT TOPIC====wp_id is {}".format(tl_wp_id))
+        visible = False
+        if self.next_wp:
+            rospy.loginfo("====next wp is {}".format(self.next_wp))
+            if self.next_wp < tl_wp_id:
+                if self.next_wp + LOOKAHEAD_WPS > tl_wp_id:
+                    visible = True
+            else:
+                if self.next_wp + LOOKAHEAD_WPS > tl_wp_id + len(self.lane.waypoints):
+                    visible = True
+        
+        self.seeRedTL = visible
+        self.redTL_wp_id = tl_wp_id
+        
+    def gen_see_red_tl_wps(self):
+        waypoints = []
+        next_wp_id = self.next_wp
+        red_tl_wp_id = self.redTL_wp_id
+        v = self.current_linear_x
+        if next_wp_id == red_tl_wp_id:
+            dist = 0
+            a = -1
+            pass_by_tl = True
+        else:
+            dist = self.distance(self.lane.waypoints, next_wp_id, red_tl_wp_id)
+            a = v**2/2/dist
+            rospy.loginfo("dist={}, a={}, v={}".format(dist, a, v))
+            pass_by_tl = False
+            
+        for i in range(LOOKAHEAD_WPS):
+            p = copy.deepcopy(self.lane.waypoints[next_wp_id])
+            if pass_by_tl:
+                p.twist.twist.linear.x = 0
+            else:
+                s = self.distance(self.lane.waypoints, self.next_wp, next_wp_id)
+                check = v**2 - 2*a*s
+                if check > 0:
+                    rospy.loginfo("check={}".format(check))
+                    divided = v - math.sqrt(check)
+                else:
+                    rospy.loginfo("check=0!!")
+                    divided = v
+                #divided = v - math.sqrt(v**2 - 2*a*s)
+                #t = (v - math.sqrt(v**2 - 2*a*s))/a
+                t = divided/a
+                rospy.loginfo("/////////////start={}, end={}".format(self.next_wp, next_wp_id))
+                rospy.loginfo("s={}, divided={}".format(s, divided))
+                rospy.loginfo("a={}, t={}//////////".format(a, t))
+                p.twist.twist.linear.x = v - a*t
+            
+            waypoints.append(p)
+            next_wp_id += 1
+            if next_wp_id == len(self.lane.waypoints):
+                next_wp_id = 0
+            
+            #if next_wp_id == self.redTL_wp_id + 1:
+            #    pass_by_tl = True
+        
+        return waypoints
+    
+    def gen_common_wps(self):
+        waypoints = []
+        next_wp_id = self.next_wp
+        for i in range(LOOKAHEAD_WPS):
+            p = self.lane.waypoints[next_wp_id]
+            waypoints.append(p)
+            next_wp_id += 1
+            if next_wp_id == len(self.lane.waypoints):
+                next_wp_id = 0
+        return waypoints
 
 if __name__ == '__main__':
     try:
