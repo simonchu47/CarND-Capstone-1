@@ -1,0 +1,16 @@
+1. make a directory named tld here
+2. put the frozen graph into the "tld" directory
+3. named the frozen graph "frozen_inference_graph.pb"
+
+
+
+Edited by Chi 20180318:
+
+How to use retrianed faster RCNN graph (for simulator and for real life).
+
+1. make a directory named tld here
+2. put the frozen graph into the "tld" directory
+	3. named the frozen graph "frozen_inference_graph_sim.pb" (used for simulator)
+	4. named the forzen graph "frozen_inference_graph_real.pb" (used for real life)
+ 	5. put the "label_map.pbtxt" in this folder.
+6. in \ros\src\tl_detector\light_classification\tl_classifier.py change the flag in line 18, self.simulation to "False" for real world testing.
