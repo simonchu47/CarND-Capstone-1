@@ -3,8 +3,12 @@ from styx_msgs.msg import TrafficLight
 import rospy
 import tensorflow as tf
 import numpy as np
+#from PIL import ImageDraw
+from PIL import ImageColor
+import matplotlib.pyplot as plt
+
 #from PIL import Image
-#import cv2
+import cv2
 
 FASTER_RCNN_GRAPH_FILE = 'light_classification/tld/frozen_inference_graph.pb'
 BOX_CONFIDENCE = 0.8
@@ -13,6 +17,11 @@ GREEN_THRESHOLD = 150
 CONF_TOP = 2.0
 CONF_BOT = 0.5
 TOP_5 = 5
+
+# Colors (one for each class)
+cmap = ImageColor.colormap
+print("Number of colors =", len(cmap))
+COLOR_LIST = sorted([c for c in cmap.keys()])
 
 class TLClassifier(object):
     def __init__(self):
@@ -91,14 +100,28 @@ class TLClassifier(object):
             for i in range(len(boxes)):
                 # Get the position of each box
                 bot, left, top, right = box_coords[i, ...]
+                print("b,l,t,r={},{},{},{}".format(bot, left, top, right))
+                
+                # Each class with be represented by a differently colored box
+                #self.draw_boxes(image, box_coords, classes)
+                
                 # The class id of traffic light should be 1, but depend on the graph
                 #class_id = int(classes[i])
                 #tl_image = image.crop((int(left), int(bot), int(right), int(top)))
                 tl_image = image[int(bot):int(top), int(left):int(right)]
+                cv2.imwrite("./tl_{}.jpg".format(i), tl_image)
+                
                 im = np.array(tl_image)
                 total_vote += im.shape[0]*im.shape[1]
                 # Create the histogram for each RGB channel
-                rh, gh, bh = self.color_hist(im, nbins=32, bins_range=(0, 256))
+                bh, gh, rh = self.color_hist(im, nbins=32, bins_range=(0, 256))
+                print("rh={}".format(rh))
+                print("gh={}".format(gh))
+                print("bh={}".format(bh))
+                rospy.loginfo("rh={}".format(rh))
+                rospy.loginfo("gh={}".format(gh))
+                rospy.loginfo("bh={}".format(bh))
+                
                 if rh is not None:           
                     for i in range(len(rh[0])):
                         if rh[1][i] > RED_THRESHOLD:
@@ -110,6 +133,7 @@ class TLClassifier(object):
                             g_vote += gh[0][i]
 
             if TL_Detected:
+                cv2.imwrite("./result.jpg", image)
                 r_confidence = r_vote/total_vote
                 g_confidence = g_vote/total_vote
                 if g_confidence > 0.0:
@@ -129,7 +153,7 @@ class TLClassifier(object):
             else:
                 rospy.loginfo('Check2...')
                 return TrafficLight.UNKNOWN
-            
+        
         return TrafficLight.UNKNOWN
 
     def filter_boxes(self, top_x, boxes, scores, classes):
@@ -187,3 +211,13 @@ class TLClassifier(object):
         ghist = np.histogram(img[:,:,1], nbins, bins_range)
         bhist = np.histogram(img[:,:,2], nbins, bins_range)
         return rhist, ghist, bhist
+    
+    def draw_boxes(self, image, boxes, classes, thickness=4):
+        """Draw bounding boxes on the image"""
+        #draw = ImageDraw.Draw(image)
+        for i in range(len(boxes)):
+            bot, left, top, right = boxes[i, ...]
+            #class_id = int(classes[i])
+            #color = COLOR_LIST[class_id]
+            #draw.line([(left, top), (left, bot), (right, bot), (right, top), (left, top)], width=thickness, fill=color)
+            cv2.rectangle(image, (left, top), (right, bot), (0, 255, 0), 3)
