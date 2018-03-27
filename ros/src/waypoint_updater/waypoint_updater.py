@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import division
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import Lane, Waypoint
 
 import math
@@ -32,6 +32,12 @@ class WaypointUpdater(object):
 
     def __init__(self):
         rospy.init_node('waypoint_updater')
+        
+        self.current_pose = Pose()
+        self.last_pose = Pose()
+        self.last_pose.position.x = 0.0
+        self.last_pose.position.y = 0.0
+        self.current_heading = 0.0
 
         self.seeRedTL = False
         self.redTL_wp_id = None
@@ -63,7 +69,17 @@ class WaypointUpdater(object):
         # TODO: Implement
         #pass
 
-        self.current_pose = msg.pose
+        #self.current_pose = msg.pose
+        cur_x = self.current_pose.position.x
+        cur_y = self.current_pose.position.y
+        if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
+            self.current_pose = msg.pose
+            last_x = self.last_pose.position.x
+            last_y = self.last_pose.position.y
+            self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
+            self.last_pose.position.x = cur_x
+            self.last_pose.position.y = cur_y
+            
         if len(self.lane.waypoints) > 0:
             delay_d = self.current_linear_x * PREDICT_TIME
             phi = math.atan2(self.current_pose.position.y, self.current_pose.position.x) + self.current_pose.orientation.z + self.current_angular_z*PREDICT_TIME
@@ -104,6 +120,52 @@ class WaypointUpdater(object):
 
             lane.waypoints = self.final_waypoints
             self.final_waypoints_pub.publish(lane)
+        """
+        #self.current_pose = msg.pose
+        cur_x = self.current_pose.position.x
+        cur_y = self.current_pose.position.y
+        if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
+            self.current_pose = msg.pose
+            last_x = self.last_pose.position.x
+            last_y = self.last_pose.position.y
+            self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
+            self.last_pose.position.x = cur_x
+            self.last_pose.position.y = cur_y
+        
+        delay_d = self.current_linear_x * PREDICT_TIME
+        phi = math.atan2(self.current_pose.position.y, self.current_pose.position.x) + self.current_pose.orientation.z + self.current_angular_z*PREDICT_TIME
+        delta_x = delay_d*math.sin(phi)
+        delta_y = delay_d*math.cos(phi)
+        self.predict_pose = Waypoint().pose.pose
+        self.predict_pose.position.x = self.current_pose.position.x + delta_x
+        self.predict_pose.position.y = self.current_pose.position.y + delta_y
+
+        rospy.loginfo('Current pose --- x is %f, y is %f', self.current_pose.position.x, self.current_pose.position.y)
+        rospy.loginfo('Predict pose --- x is %f, y is %f', self.predict_pose.position.x, self.predict_pose.position.y)
+        self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose)
+        #self.next_wp = self.find_next_wp(self.lane.waypoints, self.current_pose)
+
+        map_x = self.lane.waypoints[self.next_wp].pose.pose.position.x
+        map_y = self.lane.waypoints[self.next_wp].pose.pose.position.y
+
+        rospy.loginfo('Next waypoint[%d] x is %f, y is %f', self.next_wp, map_x, map_y)
+
+        self.final_waypoints = []
+        next_wp_id = self.next_wp
+        for i in range(LOOKAHEAD_WPS):
+            p = self.lane.waypoints[next_wp_id]
+            self.final_waypoints.append(p)
+            next_wp_id += 1
+            if next_wp_id == len(self.lane.waypoints):
+                next_wp_id = 0
+        lane = Lane()
+        lane.header.frame_id = '/world'
+        #lane.header.stamp = rospy.Time(0)
+        lane.header.stamp = rospy.get_rostime()
+
+        lane.waypoints = self.final_waypoints
+        self.final_waypoints_pub.publish(lane)
+        """
 
     def waypoints_cb(self, waypoints):
         # TODO: Implement
@@ -151,7 +213,8 @@ class WaypointUpdater(object):
         map_y = waypoints[closest_wp_id].pose.pose.position.y
 
         heading = math.atan2(map_y - cur_y, map_x - cur_x)
-        angle = math.fabs(theta - heading)
+        angle = math.fabs(self.current_heading - heading)
+        #angle = math.fabs(theta - heading)
         angle = min(2*math.pi - angle, angle)
         if angle > math.pi/4:
             next_wp_id = closest_wp_id + 1
