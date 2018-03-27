@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import Lane, Waypoint
 
 import math
@@ -30,6 +30,12 @@ class WaypointUpdater(object):
 
     def __init__(self):
         rospy.init_node('waypoint_updater')
+        
+        self.current_pose = Pose()
+        self.last_pose = Pose()
+        self.last_pose.position.x = 0.0
+        self.last_pose.position.y = 0.0
+        self.current_heading = 0.0
 
         #rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb, queue_size=1)
@@ -50,38 +56,24 @@ class WaypointUpdater(object):
         self.last_pose_stamp = rospy.Time(0)
         self.current_linear_x = 0.0
         self.current_angular_z = 0.0
+        
         rospy.spin()
 
     def pose_cb(self, msg):
         # TODO: Implement
         #pass
 
-        self.current_pose = msg.pose
-        """
-        self.current_pose_stamp = msg.header.stamp
-        if self.first_pose == True:
-            self.last_pose = self.current_pose
-            sample_t = 1.0
-            self.predict_pose = self.current_pose
-            self.first_pose = False
-        else:
-            sample_t = self.get_duration(self.last_pose_stamp, self.current_pose_stamp)
-            if sample_t < NEAR_ZERO:
-                sample_t = NEAR_ZERO
-
-        vx = (self.current_pose.position.x - self.last_pose.position.x)/sample_t
-        vy = (self.current_pose.position.y - self.last_pose.position.y)/sample_t
-        rospy.loginfo('vx is %f, vy is %f', vx, vy)
-
-        if vx != 0.0 and vy != 0.0:
-            p = Waypoint()
-            self.predict_pose = p.pose.pose
-            self.predict_pose.position.x = self.current_pose.position.x + vx * PREDICT_TIME
-            self.predict_pose.position.y = self.current_pose.position.y + vy * PREDICT_TIME
-
-        self.last_pose = self.current_pose
-        self.last_pose_stamp = self.current_pose_stamp
-        """
+        #self.current_pose = msg.pose
+        cur_x = self.current_pose.position.x
+        cur_y = self.current_pose.position.y
+        if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
+            self.current_pose = msg.pose
+            last_x = self.last_pose.position.x
+            last_y = self.last_pose.position.y
+            self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
+            self.last_pose.position.x = cur_x
+            self.last_pose.position.y = cur_y
+        
         delay_d = self.current_linear_x * PREDICT_TIME
         phi = math.atan2(self.current_pose.position.y, self.current_pose.position.x) + self.current_pose.orientation.z + self.current_angular_z*PREDICT_TIME
         delta_x = delay_d*math.sin(phi)
@@ -162,7 +154,8 @@ class WaypointUpdater(object):
         map_y = waypoints[closest_wp_id].pose.pose.position.y
 
         heading = math.atan2(map_y - cur_y, map_x - cur_x)
-        angle = math.fabs(theta - heading)
+        angle = math.fabs(self.current_heading - heading)
+        #angle = math.fabs(theta - heading)
         angle = min(2*math.pi - angle, angle)
         if angle > math.pi/4:
             next_wp_id = closest_wp_id + 1
