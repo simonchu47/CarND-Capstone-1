@@ -103,8 +103,8 @@ class DBWNode(object):
 
             if self.enabled == True:
 
-               rospy.loginfo('Last sample time     secs=%d, nsecs=%d', self.last_sample_time.secs, self.last_sample_time.nsecs)
-               rospy.loginfo('Final waypoints time secs=%d, nsecs=%d', self.last_final_wp_time.secs, self.last_final_wp_time.nsecs)
+               #rospy.loginfo('Last sample time     secs=%d, nsecs=%d', self.last_sample_time.secs, self.last_sample_time.nsecs)
+               #rospy.loginfo('Final waypoints time secs=%d, nsecs=%d', self.last_final_wp_time.secs, self.last_final_wp_time.nsecs)
 
 
                throttle, brake, steering = self.controller.control(self.cmd_linear_x,

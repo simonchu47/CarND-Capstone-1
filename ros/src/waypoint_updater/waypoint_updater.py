@@ -24,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 30 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
 PREDICT_TIME = 1.0
 NEAR_ZERO = 0.00001
 
@@ -89,20 +89,20 @@ class WaypointUpdater(object):
             self.predict_pose.position.x = self.current_pose.position.x + delta_x
             self.predict_pose.position.y = self.current_pose.position.y + delta_y
 
-            rospy.loginfo('Current pose --- x is %f, y is %f', self.current_pose.position.x, self.current_pose.position.y)
-            rospy.loginfo('Predict pose --- x is %f, y is %f', self.predict_pose.position.x, self.predict_pose.position.y)
+            #rospy.loginfo('Current pose --- x is %f, y is %f', self.current_pose.position.x, self.current_pose.position.y)
+            #rospy.loginfo('Predict pose --- x is %f, y is %f', self.predict_pose.position.x, self.predict_pose.position.y)
             self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose)
             #self.next_wp = self.find_next_wp(self.lane.waypoints, self.current_pose)
 
             map_x = self.lane.waypoints[self.next_wp].pose.pose.position.x
             map_y = self.lane.waypoints[self.next_wp].pose.pose.position.y
 
-            rospy.loginfo('Next waypoint[%d] x is %f, y is %f', self.next_wp, map_x, map_y)
+            #rospy.loginfo('Next waypoint[%d] x is %f, y is %f', self.next_wp, map_x, map_y)
 
             self.final_waypoints = []
         
             if self.seeRedTL:
-                rospy.loginfo("SEE RED LIGHT!!!!!!")
+                #rospy.loginfo("SEE RED LIGHT!!!!!!")
                 self.final_waypoints = self.gen_see_red_tl_wps()
             else:
                 self.final_waypoints = self.gen_common_wps()
@@ -111,7 +111,7 @@ class WaypointUpdater(object):
             for i in range(len(self.final_waypoints)):
                 wp_v.append(self.final_waypoints[i].twist.twist.linear.x)
             rospy.loginfo("velocity cmd = {}".format(wp_v))
-            rospy.loginfo("wp[292], v = {}".format(self.lane.waypoints[292].twist.twist.linear.x))
+            #rospy.loginfo("wp[292], v = {}".format(self.lane.waypoints[292].twist.twist.linear.x))
         
             lane = Lane()
             lane.header.frame_id = '/world'
@@ -240,10 +240,10 @@ class WaypointUpdater(object):
         
     def traffic_wp_cb(self, tl_wp):
         tl_wp_id = tl_wp.data
-        rospy.loginfo("Got RED LIGHT TOPIC====wp_id is {}".format(tl_wp_id))
+        #rospy.loginfo("Got RED LIGHT TOPIC====wp_id is {}".format(tl_wp_id))
         visible = False
         if self.next_wp:
-            rospy.loginfo("====next wp is {}".format(self.next_wp))
+            #rospy.loginfo("====next wp is {}".format(self.next_wp))
             if self.next_wp < tl_wp_id:
                 if self.next_wp + LOOKAHEAD_WPS > tl_wp_id:
                     visible = True
@@ -264,9 +264,14 @@ class WaypointUpdater(object):
             a = -1
             pass_by_tl = True
         else:
-            dist = self.distance(self.lane.waypoints, next_wp_id, red_tl_wp_id)
-            a = v**2/2/dist
-            rospy.loginfo("dist={}, a={}, v={}".format(dist, a, v))
+            dist = self.dist_from_pose_to_some_wp(self.lane.waypoints, self.current_pose, next_wp_id)
+            dist += self.distance(self.lane.waypoints, next_wp_id, red_tl_wp_id)
+            #a = v**2/2/dist
+            if dist < 0.0001:
+                rospy.loginfo("dist={}!!!".format(dist))
+                dist = 0.0001
+            a = v**2 * 0.5/dist
+            #rospy.loginfo("dist={}, a={}, v={}".format(dist, a, v))
             pass_by_tl = False
             
         for i in range(LOOKAHEAD_WPS):
@@ -274,22 +279,23 @@ class WaypointUpdater(object):
             if pass_by_tl:
                 p.twist.twist.linear.x = 0
             else:
-                s = self.distance(self.lane.waypoints, self.next_wp, next_wp_id)
+                #s = self.distance(self.lane.waypoints, self.next_wp, next_wp_id)
+                s = self.dist_from_pose_to_some_wp(self.lane.waypoints, self.current_pose, next_wp_id)
                 check = v**2 - 2*a*s
                 if check > 0:
-                    rospy.loginfo("check={}".format(check))
+                    #rospy.loginfo("check={}".format(check))
                     #divided = v - math.sqrt(check)
                     p.twist.twist.linear.x = math.sqrt(check)
                     
                 else:
-                    rospy.loginfo("check<=0!!")
+                    #rospy.loginfo("check<=0!!")
                     p.twist.twist.linear.x = 0
                 #divided = v - math.sqrt(v**2 - 2*a*s)
                 #t = (v - math.sqrt(v**2 - 2*a*s))/a
                 #t = divided/a
                 #rospy.loginfo("/////////////start={}, end={}".format(self.next_wp, next_wp_id))
                 #rospy.loginfo("s={}, divided={}".format(s, divided))
-                rospy.loginfo("a={}//////////".format(a))
+                #rospy.loginfo("a={}//////////".format(a))
             
             waypoints.append(p)
             next_wp_id += 1
@@ -311,6 +317,13 @@ class WaypointUpdater(object):
             if next_wp_id == len(self.lane.waypoints):
                 next_wp_id = 0
         return waypoints
+    
+    def dist_from_pose_to_some_wp(self, waypoints, pose, wp):
+        wp_next = self.find_next_wp(self.lane.waypoints, self.current_pose)
+        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+        dist = dl(waypoints[wp_next].pose.pose.position, pose.position)
+        dist +=  self.distance(waypoints, wp_next, wp)
+        return dist 
 
 if __name__ == '__main__':
     try:

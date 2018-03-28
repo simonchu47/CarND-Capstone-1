@@ -61,7 +61,7 @@ class Controller(object):
         else:
             delta_t = rospy.get_time() - self.previous_time
         
-        
+            rospy.loginfo("cmd_linear_x is {}, current_linear_x is {}".format(cmd_linear_x, current_linear_x))
             speed_error = cmd_linear_x - current_linear_x
 
 
@@ -76,15 +76,18 @@ class Controller(object):
 
             else:
                 throttle = 0.0
-                decel = max(self.decel_limit, speed_error/delta_t)
+                #decel = max(self.decel_limit, speed_error/delta_t)
+                decel = speed_error/delta_t
+                rospy.loginfo('decel is %f', decel)
                 if abs(decel) < self.brake_deadband:
                     brake = 0.0
                 else:        
                     mass = self.vehicle_mass + self.fuel_capacity*GAS_DENSITY
-                    brake = abs(decel)*mass*self.wheel_radius
+                    brake = abs(decel)*mass*self.wheel_radius*-1
                 
             rospy.loginfo('speed_error is %f', speed_error)
-            rospy.loginfo('pid result is %f', throttle)    
+            #rospy.loginfo('delta_t is %f', delta_t)
+            #rospy.loginfo('pid result is %f', throttle)    
             self.previous_time = rospy.get_time()
 
         return throttle, brake, steer
