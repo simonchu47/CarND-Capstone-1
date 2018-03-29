@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import Lane, Waypoint
 
 import math
@@ -51,6 +51,9 @@ class WaypointUpdater(object):
         self.delta_v_per_m = 0.0
         self.max_speed = rospy.get_param('~velocity', 10.0)
         self.final_waypoints = []
+        
+        self.last_pose = Pose()
+        self.current_heading = 0.0
 
         # Loop that keeps publishing at specified HZ rate
         rate = rospy.Rate(HZ_RATE)
@@ -69,7 +72,21 @@ class WaypointUpdater(object):
         pass
 
     def pose_cb(self, msg):
-        self.current_pose = msg.pose
+        #self.current_pose = msg.pose
+        
+        if self.current_pose is None:
+            self.current_pose = msg.pose
+        else:
+            cur_x = self.current_pose.position.x
+            cur_y = self.current_pose.position.y
+            if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
+                self.current_pose = msg.pose
+                last_x = self.last_pose.position.x
+                last_y = self.last_pose.position.y
+                self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
+                self.last_pose.position.x = cur_x
+                self.last_pose.position.y = cur_y
+        
 
     def current_velocity_cb(self, velocity):
         self.current_linear_x = velocity.twist.linear.x
@@ -88,7 +105,7 @@ class WaypointUpdater(object):
         self.predict_pose = Waypoint().pose.pose
         self.predict_pose.position.x = self.current_pose.position.x + delta_x
         self.predict_pose.position.y = self.current_pose.position.y + delta_y
-        self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose)
+        self.next_wp = self.find_next_wp(self.lane.waypoints, self.predict_pose, self.current_heading)
 
         # Set default to maximum speed
         self.final_waypoints = []
@@ -188,7 +205,7 @@ class WaypointUpdater(object):
         return dist
 
     @staticmethod
-    def find_next_wp(waypoints, pose):
+    def find_next_wp(waypoints, pose, current_heading):
         min_dist = WaypointUpdater.distance_between(waypoints[0].pose.pose.position, pose.position)
         closest_wp_id = 0
         for i in range(1, len(waypoints)):
@@ -198,12 +215,13 @@ class WaypointUpdater(object):
                 closest_wp_id = i
         cur_x = pose.position.x
         cur_y = pose.position.y
-        theta = math.atan2(cur_y, cur_x)
+        #theta = math.atan2(cur_y, cur_x)
         map_x = waypoints[closest_wp_id].pose.pose.position.x
         map_y = waypoints[closest_wp_id].pose.pose.position.y
 
         heading = math.atan2(map_y - cur_y, map_x - cur_x)
-        angle = math.fabs(theta - heading)
+        #angle = math.fabs(theta - heading)
+        angle = math.fabs(current_heading - heading)
         angle = min(2 * math.pi - angle, angle)
         if angle > math.pi / 4:
             next_wp_id = closest_wp_id + 1
