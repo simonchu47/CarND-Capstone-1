@@ -39,8 +39,8 @@ class Controller(object):
                                               self.max_lat_accel,
                                               self.max_steer_angle)
         self.previous_time = 0
-        self.lpfilter = LowPassFilter(0.2, 0.1)
-        self.sim_scale_factor = 15  # set to 1 for Carla???
+        self.lpfilter = LowPassFilter(0.5, 0.2)
+        #self.sim_scale_factor = 15  # set to 1 for Carla???
 
     def control(self,
                 cmd_linear_x,
@@ -55,28 +55,36 @@ class Controller(object):
             brake = 0.0
         else:
             delta_t = rospy.get_time() - self.previous_time
+            self.previous_time = rospy.get_time()
 
+            current_linear_x = self.lpfilter.filt(current_linear_x)
             speed_error = cmd_linear_x - current_linear_x
 
             steer = self.steer_controller.get_steering(cmd_linear_x, cmd_angular_z, current_linear_x)
-            steer = self.lpfilter.filt(steer)
-
-            if speed_error >= 0.0:
-                brake = 0.0
-                speed_error = self.sim_scale_factor * min(speed_error, self.accel_limit * delta_t)
-                throttle = self.throttle_controller.step(speed_error, delta_t)
-
-            else:
+            throttle = self.throttle_controller.step(speed_error, delta_t)
+            brake   = 0.0
+            
+            
+            if cmd_linear_x == 0.  and current_linear_x < 0.1:
                 throttle = 0.0
-                decel = max(self.decel_limit, speed_error / delta_t)
-                if abs(decel) < self.brake_deadband:
-                    brake = 0.0
-                else:
-                    mass = self.vehicle_mass + self.fuel_capacity * GAS_DENSITY
-                    brake = abs(decel) * mass * self.wheel_radius
+                brake = 400
+                #speed_error = self.sim_scale_factor * min(speed_error, self.accel_limit * delta_t)
+                
+
+            elif throttle < 0.1 and speed_error < 0:
+                throttle = 0.0
+                decel = max(self.decel_limit, speed_error)
+                #if abs(decel) < self.brake_deadband:
+                #    brake = 0.0
+                #else:
+                 #   mass = self.vehicle_mass + self.fuel_capacity * GAS_DENSITY
+                 #   brake = abs(decel) * mass * self.wheel_radius
+                mass = self.vehicle_mass + self.fuel_capacity * GAS_DENSITY
+                brake = abs(decel) * mass * self.wheel_radius
+
 
             rospy.loginfo('speed_error is %f', speed_error)
             rospy.loginfo('pid result is %f', throttle)
-            self.previous_time = rospy.get_time()
+            
 
         return throttle, brake, steer
