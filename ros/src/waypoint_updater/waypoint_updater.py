@@ -97,7 +97,11 @@ class WaypointUpdater(object):
                 next_wp_id = 0
 
         # Check if there is a red light up ahead
-        if self.traffic_light_wp is not None:
+        
+        if self.traffic_light_wp is None or self.traffic_light_wp == -1:
+            self.traffic_light_stop = False
+            self.traffic_light_det = False
+        else :
             # Get the distance to the traffic light
             dist_to_tl = self.distance_fwrd(self.lane.waypoints, self.next_wp, self.traffic_light_wp)
 
@@ -111,9 +115,6 @@ class WaypointUpdater(object):
             else:
                 self.traffic_light_stop = False
 
-        else:
-            self.traffic_light_stop = False
-            self.traffic_light_det = False
 
         # Start to brake
         if self.traffic_light_stop:
