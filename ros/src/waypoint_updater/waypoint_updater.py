@@ -17,7 +17,7 @@ This node will publish waypoints from the car's current position to some `x` dis
 LOOKAHEAD_WPS = 100  # Number of waypoints we will publish
 NEAR_ZERO = 0.00001
 STOP_BEFORE_TL = 2.5
-HZ_RATE = 20  # Rospy HZ Rate to determine publishing frequency
+HZ_RATE = 30  # Rospy HZ Rate to determine publishing frequency
 
 
 class WaypointUpdater(object):
