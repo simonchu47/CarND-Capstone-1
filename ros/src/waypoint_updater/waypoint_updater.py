@@ -173,6 +173,9 @@ class WaypointUpdater(object):
             num_wp = len(waypoints) - wp1 + wp2
 
         next_wp_id = wp1 + 1
+        if next_wp_id == len(waypoints):
+            next_wp_id = 0
+                
         prev_wp_id = wp1
         for i in range(num_wp):
             dist += WaypointUpdater.distance_between(waypoints[prev_wp_id].pose.pose.position, waypoints[next_wp_id].pose.pose.position)
