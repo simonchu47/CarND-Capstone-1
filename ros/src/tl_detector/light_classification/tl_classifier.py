@@ -8,10 +8,10 @@ import cv2
 
 FASTER_RCNN_GRAPH_FILE = 'light_classification/tld/frozen_inference_graph.pb'
 BOX_CONFIDENCE = 0.8
-RED_THRESHOLD = 150
-GREEN_THRESHOLD = 150
+RED_THRESHOLD = 200
+GREEN_THRESHOLD = 200
 CONF_TOP = 1.2
-CONF_BOT = 0.5
+CONF_BOT = 0.8
 TOP_5 = 5
 HISTOGRAM_WEIGHT = 2.0
 
@@ -102,7 +102,7 @@ class TLClassifier(object):
                 
                 # For debug
                 #self.draw_boxes(image, box_coords, classes)
-                #cv2.imwrite("./tl_{}.jpg".format(i), tl_image)
+                cv2.imwrite("./tl_{}.jpg".format(i), tl_image)
                 
                 im = np.array(tl_image)
                 total_vote += im.shape[0]*im.shape[1]
@@ -120,12 +120,12 @@ class TLClassifier(object):
 
             if TL_Detected:
                 # For debug
-                #cv2.imwrite("./result.jpg", image)
+                cv2.imwrite("./result.jpg", image)
                 
                 r_confidence = r_vote/total_vote
                 g_confidence = g_vote/total_vote
-                #print("r_confidence={}".format(r_confidence))
-                #print("g_confidence={}".format(g_confidence))
+                print("r_confidence={}".format(r_confidence))
+                print("g_confidence={}".format(g_confidence))
                 if g_confidence > 0.0:
                     conf_ratio = r_confidence/g_confidence
                     if conf_ratio > CONF_TOP:
@@ -160,7 +160,7 @@ class TLClassifier(object):
         """Return the top several scores boxes """
         idxs = []
         for i in range(top_x):
-            #print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
+            print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             #rospy.loginfo("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             idxs.append(i)
     
@@ -237,8 +237,8 @@ class TLClassifier(object):
                 (TrafficLight.UNKNOWN, u_conf)]
 
         conf = sorted(conf, key = lambda x: x[1])
-        #for i in range(len(conf)):
-        #    print("{} is {}".format(conf[i][0], conf[i][1]))
+        for i in range(len(conf)):
+            print("{} is {}".format(conf[i][0], conf[i][1]))
         return conf[-1][0]
     
     def draw_boxes(self, image, boxes, classes, thickness=4):
