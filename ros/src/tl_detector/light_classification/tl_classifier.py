@@ -8,10 +8,10 @@ import cv2
 
 FASTER_RCNN_GRAPH_FILE = 'light_classification/tld/frozen_inference_graph.pb'
 BOX_CONFIDENCE = 0.8
-RED_THRESHOLD = 150
-GREEN_THRESHOLD = 150
+RED_THRESHOLD = 200
+GREEN_THRESHOLD = 200
 CONF_TOP = 1.2
-CONF_BOT = 0.5
+CONF_BOT = 0.8
 TOP_5 = 5
 HISTOGRAM_WEIGHT = 2.0
 
@@ -76,6 +76,7 @@ class TLClassifier(object):
             #accumulate the scores according to the class
             r_conf, g_conf, y_conf, u_conf = self.accumulate_conf(scores, classes)
 
+            """
             # The current box coordinates are normalized to a range between 0 and 1.
             # This converts the coordinates actual location on the image.
             #width, height = image.size
@@ -124,8 +125,8 @@ class TLClassifier(object):
                 
                 r_confidence = r_vote/total_vote
                 g_confidence = g_vote/total_vote
-                #print("r_confidence={}".format(r_confidence))
-                #print("g_confidence={}".format(g_confidence))
+                print("r_confidence={}".format(r_confidence))
+                print("g_confidence={}".format(g_confidence))
                 if g_confidence > 0.0:
                     conf_ratio = r_confidence/g_confidence
                     if conf_ratio > CONF_TOP:
@@ -152,7 +153,7 @@ class TLClassifier(object):
             else:
                 #return TrafficLight.UNKNOWN
                 u_conf += HISTOGRAM_WEIGHT
-            
+        """    
         #return TrafficLight.UNKNOWN
         return self.sort_conf(r_conf, g_conf, y_conf, u_conf)
 
