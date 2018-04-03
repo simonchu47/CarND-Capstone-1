@@ -76,6 +76,7 @@ class TLClassifier(object):
             #accumulate the scores according to the class
             r_conf, g_conf, y_conf, u_conf = self.accumulate_conf(scores, classes)
 
+            """
             # The current box coordinates are normalized to a range between 0 and 1.
             # This converts the coordinates actual location on the image.
             #width, height = image.size
@@ -102,7 +103,7 @@ class TLClassifier(object):
                 
                 # For debug
                 #self.draw_boxes(image, box_coords, classes)
-                cv2.imwrite("./tl_{}.jpg".format(i), tl_image)
+                #cv2.imwrite("./tl_{}.jpg".format(i), tl_image)
                 
                 im = np.array(tl_image)
                 total_vote += im.shape[0]*im.shape[1]
@@ -120,7 +121,7 @@ class TLClassifier(object):
 
             if TL_Detected:
                 # For debug
-                cv2.imwrite("./result.jpg", image)
+                #cv2.imwrite("./result.jpg", image)
                 
                 r_confidence = r_vote/total_vote
                 g_confidence = g_vote/total_vote
@@ -152,7 +153,7 @@ class TLClassifier(object):
             else:
                 #return TrafficLight.UNKNOWN
                 u_conf += HISTOGRAM_WEIGHT
-            
+        """    
         #return TrafficLight.UNKNOWN
         return self.sort_conf(r_conf, g_conf, y_conf, u_conf)
 
@@ -160,7 +161,7 @@ class TLClassifier(object):
         """Return the top several scores boxes """
         idxs = []
         for i in range(top_x):
-            print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
+            #print("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             #rospy.loginfo("scores[{}] = {}, class = {}".format(i, scores[i], classes[i]))
             idxs.append(i)
     
@@ -237,8 +238,8 @@ class TLClassifier(object):
                 (TrafficLight.UNKNOWN, u_conf)]
 
         conf = sorted(conf, key = lambda x: x[1])
-        for i in range(len(conf)):
-            print("{} is {}".format(conf[i][0], conf[i][1]))
+        #for i in range(len(conf)):
+        #    print("{} is {}".format(conf[i][0], conf[i][1]))
         return conf[-1][0]
     
     def draw_boxes(self, image, boxes, classes, thickness=4):
