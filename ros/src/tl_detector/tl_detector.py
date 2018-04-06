@@ -228,7 +228,7 @@ class TLDetector(object):
 
         #TODO find the closest visible traffic light (if one exists)
         #light_wp = []
-        if light:
+        if light and self.waypoints:
             #rospy.loginfo('tl_position is {}'.format(tl_position))
             #rospy.loginfo("Currently car at {}, {}".format(self.pose.position.x, self.pose.position.y))
 
@@ -280,7 +280,7 @@ class TLDetector(object):
 
         #TODO find the closest visible traffic light (if one exists)
         #light_wp = []
-        if light:
+        if light and self.waypoints:
             #rospy.loginfo('tl_position is {}'.format(tl_position))
             #rospy.loginfo("Currently car at {}, {}".format(self.pose.position.x, self.pose.position.y))
 
