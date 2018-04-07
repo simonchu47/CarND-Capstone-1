@@ -56,7 +56,7 @@ class WaypointUpdater(object):
         # Loop that keeps publishing at specified HZ rate
         rate = rospy.Rate(HZ_RATE)
         while not rospy.is_shutdown():
-            if self.current_pose is not None:
+            if self.current_pose and self.lane.waypoints:
                 self.publish_final_waypoints()
             rate.sleep()
 
