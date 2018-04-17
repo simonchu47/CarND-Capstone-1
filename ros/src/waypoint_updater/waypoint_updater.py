@@ -49,25 +49,45 @@ class WaypointUpdater(object):
         self.traffic_light_det = False
         self.delta_v_per_m = 0.0
         self.final_waypoints = []
-        self.original_velocities = []
+        
+        # Marked for "list index out of range" issue
+        #self.original_velocities = []
+        
         self.waypoints_2d = []
         self.waypoint_tree = None
+        
+        self.waypoint_tree_unlock = True
 
         # Loop that keeps publishing at specified HZ rate
         rate = rospy.Rate(HZ_RATE)
         while not rospy.is_shutdown():
             if self.current_pose and self.lane.waypoints:
-                self.publish_final_waypoints()
+                if self.waypoint_tree_unlock:
+                    self.publish_final_waypoints()
+            
             rate.sleep()
 
     def waypoints_cb(self, msg):
+        self.waypoint_tree_unlock = False
         self.lane.waypoints = msg.waypoints
-        for i in range(len(msg.waypoints)):
-            self.original_velocities.append(self.get_waypoint_velocity(self.lane.waypoints[i]))
+        
+        # The following is to test wether the node is single threaded or not
+        """
+        k = 0
+        for i in range(65536):
+            for j in range(4096):
+                k += 1
+        """
+        # Marked for "list index out of range" issue
+        #for i in range(len(msg.waypoints)):
+        #    self.original_velocities.append(self.get_waypoint_velocity(self.lane.waypoints[i]))
+        
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in
                                  msg.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)
+        
+        self.waypoint_tree_unlock = True
 
     def traffic_cb(self, msg):
         self.traffic_light_wp = msg.data
@@ -91,7 +111,11 @@ class WaypointUpdater(object):
         for i in range(LOOKAHEAD_WPS):
             p = self.lane.waypoints[next_wp_id]
             self.final_waypoints.append(p)
-            self.set_waypoint_velocity(self.final_waypoints, i, self.original_velocities[i])
+            
+            # Marked for "list index out of range" issue
+            #self.set_waypoint_velocity(self.final_waypoints, i, self.original_velocities[i])
+            self.set_waypoint_velocity(self.final_waypoints, i, self.get_waypoint_velocity(p))
+            
             next_wp_id += 1
             if next_wp_id == len(self.lane.waypoints):
                 next_wp_id = 0
