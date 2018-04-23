@@ -10,6 +10,7 @@ from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Int32
 from std_msgs.msg import String
 import numpy as np
+import copy
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
 '''
@@ -109,12 +110,13 @@ class WaypointUpdater(object):
         self.final_waypoints = []
         next_wp_id = self.next_wp
         for i in range(LOOKAHEAD_WPS):
-            p = self.lane.waypoints[next_wp_id]
+            #p = self.lane.waypoints[next_wp_id]
+            p = copy.deepcopy(self.lane.waypoints[next_wp_id])
             self.final_waypoints.append(p)
             
             # Marked for "list index out of range" issue
             #self.set_waypoint_velocity(self.final_waypoints, i, self.original_velocities[i])
-            self.set_waypoint_velocity(self.final_waypoints, i, self.get_waypoint_velocity(p))
+            self.set_waypoint_velocity(self.final_waypoints, i, WaypointUpdater.get_waypoint_velocity(p))
             
             next_wp_id += 1
             if next_wp_id == len(self.lane.waypoints):
