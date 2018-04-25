@@ -111,7 +111,9 @@ class WaypointUpdater(object):
         next_wp_id = self.next_wp
         for i in range(LOOKAHEAD_WPS):
             #p = self.lane.waypoints[next_wp_id]
-            p = copy.deepcopy(self.lane.waypoints[next_wp_id])
+            #p = copy.deepcopy(self.lane.waypoints[next_wp_id])
+            p = self.copy_wp(self.lane.waypoints[next_wp_id])
+            
             self.final_waypoints.append(p)
             
             # Marked for "list index out of range" issue
@@ -212,6 +214,15 @@ class WaypointUpdater(object):
 
         return dist
 
+    @staticmethod
+    def copy_wp(waypoint):
+        p = Waypoint()
+        p.pose.pose.position.x = waypoint.pose.pose.position.x
+        p.pose.pose.position.y = waypoint.pose.pose.position.y
+        p.pose.pose.position.z = waypoint.pose.pose.position.z
+        p.twist.twist.linear.x = waypoint.twist.twist.linear.x
+        return p
+    
     def get_closest_waypoint_id(self, pose):
         x = pose.position.x
         y = pose.position.y
