@@ -238,8 +238,9 @@ class TLClassifier(object):
                 (TrafficLight.UNKNOWN, u_conf)]
 
         conf = sorted(conf, key = lambda x: x[1])
-        #for i in range(len(conf)):
+        for i in range(len(conf)):
         #    print("{} is {}".format(conf[i][0], conf[i][1]))
+            rospy.loginfo("{} is {}".format(conf[i][0], conf[i][1]))
         return conf[-1][0]
     
     def draw_boxes(self, image, boxes, classes, thickness=4):

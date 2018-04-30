@@ -13,7 +13,7 @@ import yaml
 import math
 
 STATE_COUNT_THRESHOLD = 3
-VISIBLE_DIST = 100
+VISIBLE_DIST = 30
 
 class TLDetector(object):
     def __init__(self):
@@ -26,22 +26,8 @@ class TLDetector(object):
         self.light_classifier = TLClassifier()
         self.has_image = False
         self.use_sim_TF = False
-
-        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        '''
-        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
-        helps you acquire an accurate ground truth data source for the traffic light
-        classifier by sending the current color state of all traffic lights in the
-        simulator. When testing on the vehicle, the color state will not be available. You'll need to
-        rely on the position of the light and the camera image to predict it.
-        '''
-        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb, queue_size=1)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
-
-        config_string = rospy.get_param("/traffic_light_config")
         
+        config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
         #rospy.loginfo('self.config is %s', self.config)
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
@@ -55,31 +41,35 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
         
-        self.last_pose = Pose()
-        self.last_pose.position.x = 0.0
-        self.last_pose.position.y = 0.0
         self.current_heading = 0.0
+
+        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+
+        '''
+        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
+        helps you acquire an accurate ground truth data source for the traffic light
+        classifier by sending the current color state of all traffic lights in the
+        simulator. When testing on the vehicle, the color state will not be available. You'll need to
+        rely on the position of the light and the camera image to predict it.
+        '''
+        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb, queue_size=1)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
 
         rospy.spin()
 
     def pose_cb(self, msg):
-        cur_x = self.pose.position.x
-        cur_y = self.pose.position.y
-        if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
-            self.pose = msg.pose
-            last_x = self.last_pose.position.x
-            last_y = self.last_pose.position.y
-            self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
-            self.last_pose.position.x = cur_x
-            self.last_pose.position.y = cur_y
+        self.pose = msg.pose
+        self.current_heading = msg.pose.orientation.z
             
-        
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints.waypoints
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
+        #for i in range(len(self.lights)):
+        #    rospy.loginfo("TL[{}] state is {}".format(i, self.lights[i].state))
         light_wp, state = self.process_sim_traffic_lights()
 
         '''
@@ -89,20 +79,23 @@ class TLDetector(object):
         used.
         '''
         
-        if self.state != state:
-            self.state_count = 0
-            self.state = state
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
-            self.last_state = self.state
-            light_wp = light_wp if state == TrafficLight.RED else -1
-            self.last_wp = light_wp
-            self.upcoming_red_light_pub.publish(Int32(light_wp))
+        if state == TrafficLight.RED or state == TrafficLight.YELLOW or state == TrafficLight.GREEN or state == TrafficLight.UNKNOWN:
+            
+            if self.state != state:
+                self.state_count = 0
+                self.state = state
+            elif self.state_count >= STATE_COUNT_THRESHOLD:
+                self.last_state = self.state
+                light_wp = light_wp if state == TrafficLight.RED else -1
+                self.last_wp = light_wp
+                self.upcoming_red_light_pub.publish(Int32(light_wp))
+            else:
+                self.upcoming_red_light_pub.publish(Int32(self.last_wp))
+            self.state_count += 1
+        
+            self.use_sim_TF = True
         else:
-            self.upcoming_red_light_pub.publish(Int32(self.last_wp))
-        self.state_count += 1
-        
-        self.use_sim_TF = True
-        
+            self.use_sim_TF = False
 
     def image_cb(self, msg):
         """Identifies red lights in the incoming camera image and publishes the index
@@ -229,7 +222,7 @@ class TLDetector(object):
         #TODO find the closest visible traffic light (if one exists)
         #light_wp = []
         if light and self.waypoints:
-            #rospy.loginfo('tl_position is {}'.format(tl_position))
+            rospy.loginfo('tl_position is {}'.format(tl_position))
             #rospy.loginfo("Currently car at {}, {}".format(self.pose.position.x, self.pose.position.y))
 
             # Using the classifier
@@ -316,7 +309,7 @@ class TLDetector(object):
                 #rospy.loginfo("Cur_heading={}, tl_heading={}".format(self.current_heading, heading))
                 angle = math.fabs(self.current_heading - heading)
                 angle = min(2*math.pi - angle, angle)
-                if angle < math.pi/4:
+                if angle < math.pi/2:
                      tl = (dist, stop_line_positions[i], i)
                      possible_tls.append(tl)
             
