@@ -62,8 +62,9 @@ class TLDetector(object):
         rospy.spin()
 
     def pose_cb(self, msg):
-        cur_x = self.pose.position.x
-        cur_y = self.pose.position.y
+        #cur_x = self.pose.position.x
+        #cur_y = self.pose.position.y
+        self.pose = msg.pose
         self.current_heading = msg.pose.orientation.z
         """
         if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
