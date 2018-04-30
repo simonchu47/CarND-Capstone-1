@@ -41,9 +41,6 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
         
-        #self.last_pose = Pose()
-        #self.last_pose.position.x = 0.0
-        #self.last_pose.position.y = 0.0
         self.current_heading = 0.0
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -62,19 +59,9 @@ class TLDetector(object):
         rospy.spin()
 
     def pose_cb(self, msg):
-        #cur_x = self.pose.position.x
-        #cur_y = self.pose.position.y
         self.pose = msg.pose
         self.current_heading = msg.pose.orientation.z
-        """
-        if cur_x != msg.pose.position.x and cur_y != msg.pose.position.y:
-            self.pose = msg.pose
-            last_x = self.last_pose.position.x
-            last_y = self.last_pose.position.y
-            self.current_heading = math.atan2(cur_y - last_y, cur_x - last_x)
-            self.last_pose.position.x = cur_x
-            self.last_pose.position.y = cur_y
-        """        
+            
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints.waypoints
@@ -91,7 +78,7 @@ class TLDetector(object):
         of times till we start using it. Otherwise the previous stable state is
         used.
         '''
-        """
+        
         if state == TrafficLight.RED or state == TrafficLight.YELLOW or state == TrafficLight.GREEN or state == TrafficLight.UNKNOWN:
             
             if self.state != state:
@@ -109,20 +96,6 @@ class TLDetector(object):
             self.use_sim_TF = True
         else:
             self.use_sim_TF = False
-        """
-        if self.state != state:
-            self.state_count = 0
-            self.state = state
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
-            self.last_state = self.state
-            light_wp = light_wp if state == TrafficLight.RED else -1
-            self.last_wp = light_wp
-            self.upcoming_red_light_pub.publish(Int32(light_wp))
-        else:
-            self.upcoming_red_light_pub.publish(Int32(self.last_wp))
-        self.state_count += 1
-        
-        self.use_sim_TF = True
 
     def image_cb(self, msg):
         """Identifies red lights in the incoming camera image and publishes the index
